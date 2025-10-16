@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 
 function TakeQuiz() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const isInstantMode = searchParams.get('mode') === 'instant';
   const [quizSet, setQuizSet] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [autoNext, setAutoNext] = useState(3);
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -58,6 +64,31 @@ function TakeQuiz() {
     
     setQuestions(processedQuestions);
     setAnswers({});
+    if (isInstantMode) {
+      setCurrentIndex(0);
+      setScore({ correct: 0, total: 0 });
+    }
+  };
+
+  const handleInstantAnswer = (answerIndex) => {
+    if (selectedAnswer !== null) return;
+    
+    setSelectedAnswer(answerIndex);
+    const isCorrect = answerIndex === questions[currentIndex].correctAnswer;
+    
+    if (isCorrect) {
+      setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
+    }
+    setScore(prev => ({ ...prev, total: prev.total + 1 }));
+
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+        setSelectedAnswer(null);
+      } else {
+        setShowResults(true);
+      }
+    }, autoNext * 1000);
   };
 
   const submitQuiz = () => {
@@ -79,7 +110,7 @@ function TakeQuiz() {
   }
 
   if (showResults) {
-    const { correct, total } = calculateScore();
+    const { correct, total } = isInstantMode ? score : calculateScore();
     const percentage = Math.round((correct / total) * 100);
     
     return (
@@ -141,6 +172,11 @@ function TakeQuiz() {
             onClick={() => {
               setShowResults(false);
               setAnswers({});
+              if (isInstantMode) {
+                setCurrentIndex(0);
+                setSelectedAnswer(null);
+                setScore({ correct: 0, total: 0 });
+              }
             }}
             style={{
               background: '#4CAF50',
@@ -158,19 +194,150 @@ function TakeQuiz() {
     );
   }
 
+  // Chế độ thi nhanh - hiển thị từng câu
+  if (isInstantMode && questions.length > 0 && !showResults) {
+    const currentQ = questions[currentIndex];
+    const isAnswered = selectedAnswer !== null;
+    const isCorrect = isAnswered && selectedAnswer === currentQ.correctAnswer;
+
+    return (
+      <div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '2rem',
+          padding: '1rem',
+          background: 'white',
+          borderRadius: '8px'
+        }}>
+          <h2>{quizSet.title} - Câu {currentIndex + 1}/{questions.length}</h2>
+          <div style={{ fontSize: '1.1rem', color: '#666' }}>
+            Điểm: {score.correct}/{score.total}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          minHeight: '400px'
+        }}>
+          <h3 style={{ 
+            fontSize: '1.3rem', 
+            marginBottom: '2rem',
+            lineHeight: '1.5'
+          }}>
+            {currentQ.question}
+          </h3>
+
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {currentQ.options.map((option, index) => {
+              let bgColor = 'white';
+              let borderColor = '#ddd';
+              
+              if (isAnswered) {
+                if (index === currentQ.correctAnswer) {
+                  bgColor = '#e8f5e8';
+                  borderColor = '#4CAF50';
+                } else if (index === selectedAnswer && selectedAnswer !== currentQ.correctAnswer) {
+                  bgColor = '#ffeaea';
+                  borderColor = '#f44336';
+                }
+              }
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleInstantAnswer(index)}
+                  disabled={isAnswered}
+                  style={{
+                    padding: '1rem',
+                    border: `2px solid ${borderColor}`,
+                    borderRadius: '8px',
+                    background: bgColor,
+                    cursor: isAnswered ? 'default' : 'pointer',
+                    textAlign: 'left',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <strong>{String.fromCharCode(65 + index)}.</strong> {option}
+                  {isAnswered && index === currentQ.correctAnswer && ' ✓'}
+                  {isAnswered && index === selectedAnswer && selectedAnswer !== currentQ.correctAnswer && ' ✗'}
+                </button>
+              );
+            })}
+          </div>
+
+          {isAnswered && (
+            <div style={{
+              marginTop: '2rem',
+              padding: '1rem',
+              borderRadius: '8px',
+              background: isCorrect ? '#e8f5e8' : '#ffeaea',
+              textAlign: 'center'
+            }}>
+              <h4 style={{ 
+                color: isCorrect ? '#4CAF50' : '#f44336',
+                fontSize: '1.2rem'
+              }}>
+                {isCorrect ? '🎉 Chính xác!' : '❌ Sai rồi!'}
+              </h4>
+              <p style={{ marginTop: '0.5rem', color: '#666' }}>
+                Tự động chuyển câu sau {autoNext} giây...
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h1 style={{ marginBottom: '2rem', color: '#333' }}>{quizSet.title}</h1>
+      <h1 style={{ marginBottom: '2rem', color: '#333' }}>
+        {quizSet.title} {isInstantMode && '- Chế độ thi nhanh'}
+      </h1>
       
-      <div style={{
-        background: 'white',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        marginBottom: '2rem',
-        display: 'flex',
-        gap: '2rem',
-        alignItems: 'center'
-      }}>
+      {isInstantMode && (
+        <div style={{
+          background: 'white',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          marginBottom: '2rem'
+        }}>
+          <label style={{ display: 'block', marginBottom: '1rem' }}>
+            Thời gian tự động chuyển câu (giây):
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={autoNext}
+              onChange={(e) => setAutoNext(parseInt(e.target.value))}
+              style={{
+                marginLeft: '1rem',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                width: '80px'
+              }}
+            />
+          </label>
+        </div>
+      )}
+      
+      {!isInstantMode && (
+        <div style={{
+          background: 'white',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          marginBottom: '2rem',
+          display: 'flex',
+          gap: '2rem',
+          alignItems: 'center'
+        }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <input
             type="checkbox"
@@ -202,9 +369,10 @@ function TakeQuiz() {
         >
           Áp dụng
         </button>
-      </div>
+        </div>
+      )}
 
-      {questions.map((q, index) => (
+      {!isInstantMode && questions.map((q, index) => (
         <div key={index} style={{
           background: 'white',
           padding: '2rem',
@@ -239,23 +407,25 @@ function TakeQuiz() {
         </div>
       ))}
 
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-        <button
-          onClick={submitQuiz}
-          disabled={Object.keys(answers).length !== questions.length}
-          style={{
-            background: Object.keys(answers).length === questions.length ? '#4CAF50' : '#ccc',
-            color: 'white',
-            border: 'none',
-            padding: '1rem 2rem',
-            borderRadius: '4px',
-            cursor: Object.keys(answers).length === questions.length ? 'pointer' : 'not-allowed',
-            fontSize: '1.1rem'
-          }}
-        >
-          Nộp bài ({Object.keys(answers).length}/{questions.length})
-        </button>
-      </div>
+      {!isInstantMode && (
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <button
+            onClick={submitQuiz}
+            disabled={Object.keys(answers).length !== questions.length}
+            style={{
+              background: Object.keys(answers).length === questions.length ? '#4CAF50' : '#ccc',
+              color: 'white',
+              border: 'none',
+              padding: '1rem 2rem',
+              borderRadius: '4px',
+              cursor: Object.keys(answers).length === questions.length ? 'pointer' : 'not-allowed',
+              fontSize: '1.1rem'
+            }}
+          >
+            Nộp bài ({Object.keys(answers).length}/{questions.length})
+          </button>
+        </div>
+      )}
     </div>
   );
 }

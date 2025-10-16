@@ -4,6 +4,7 @@ import QuizSetList from './pages/QuizSetList';
 import CreateQuizSet from './pages/CreateQuizSet';
 import TakeQuiz from './pages/TakeQuiz';
 import ImportExcel from './pages/ImportExcel';
+import MixedQuiz from './pages/MixedQuiz';
 
 function App() {
   return (
@@ -20,6 +21,9 @@ function App() {
             <Link to="/import" style={{ color: 'white', textDecoration: 'none' }}>
               Import Excel
             </Link>
+            <Link to="/mixed" style={{ color: 'white', textDecoration: 'none' }}>
+              Thi trộn đề
+            </Link>
           </div>
         </nav>
         
@@ -28,6 +32,7 @@ function App() {
             <Route path="/" element={<QuizSetList />} />
             <Route path="/create" element={<CreateQuizSet />} />
             <Route path="/import" element={<ImportExcel />} />
+            <Route path="/mixed" element={<MixedQuiz />} />
             <Route path="/quiz/:id" element={<TakeQuiz />} />
           </Routes>
         </div>

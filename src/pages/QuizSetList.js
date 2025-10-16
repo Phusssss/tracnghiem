@@ -37,18 +37,34 @@ function QuizSetList() {
               <h3 style={{ color: '#333', marginBottom: '0.5rem' }}>{set.title}</h3>
               <p style={{ color: '#666' }}>{set.questions?.length || 0} câu hỏi</p>
             </div>
-            <Link 
-              to={`/quiz/${set.id}`}
-              style={{
-                background: '#4CAF50',
-                color: 'white',
-                padding: '0.5rem 1rem',
-                textDecoration: 'none',
-                borderRadius: '4px'
-              }}
-            >
-              Làm bài
-            </Link>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Link 
+                to={`/quiz/${set.id}`}
+                style={{
+                  background: '#4CAF50',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  textDecoration: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Làm bài
+              </Link>
+              <Link 
+                to={`/quiz/${set.id}?mode=instant`}
+                style={{
+                  background: '#FF9800',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  textDecoration: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Thi nhanh
+              </Link>
+            </div>
           </div>
         ))}
       </div>
